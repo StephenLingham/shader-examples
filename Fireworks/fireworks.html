@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fireworks Shader</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glcanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) {
+            alert('WebGL not supported');
+        }
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const vertexShaderSource = `
+            attribute vec2 position;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `;
+
+        const fragmentShaderSource = `
+            precision highp float;
+            uniform vec2 resolution;
+            uniform float time;
+
+            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+
+            vec3 stars(vec2 uv) {
+                vec3 color = vec3(0.0);
+                for (float i = 0.0; i < 3.0; i++) {
+                    vec2 layer = uv * (200.0 + i * 100.0);
+                    float n = noise(layer + time * 0.1 * (i + 1.0));
+                    float twinkle = sin(time * (3.0 + i) + hash(floor(layer)) * 100.0) * 0.5 + 0.5;
+                    float star = smoothstep(0.98, 0.99, n) * twinkle;
+                    color += vec3(star) * (0.8 + 0.2 * sin(i * 2.0));
+                }
+                return color;
+            }
+
+            vec3 firework(vec2 uv, float seed, float t) {
+                float life = fract(t * 0.3 + seed);
+                float launch = smoothstep(0.0, 0.2, life);
+                float explode = smoothstep(0.2, 0.25, life);
+                float fade = 1.0 - smoothstep(0.4, 1.0, life);
+                
+                vec2 origin = vec2(
+                    sin(seed * 43.0) * 0.6,
+                    -1.0 + life * 2.5
+                );
+                
+                if (life < 0.2) {
+                    float dist = length(uv - origin);
+                    return vec3(1.0, 0.8, 0.3) * (0.01 / (dist + 0.01)) * launch;
+                }
+                
+                vec3 color = vec3(0.0);
+                float hue = seed * 6.28;
+                vec3 fwColor = vec3(
+                    sin(hue) * 0.5 + 0.5,
+                    sin(hue + 2.1) * 0.5 + 0.5,
+                    sin(hue + 4.2) * 0.5 + 0.5
+                );
+                
+                for (float i = 0.0; i < 60.0; i++) {
+                    float angle = i * 0.10472 + seed * 10.0;
+                    float speed = 0.3 + hash(vec2(seed, i)) * 0.4;
+                    vec2 dir = vec2(cos(angle), sin(angle));
+                    float particleLife = (life - 0.2) * speed;
+                    vec2 pos = origin + dir * particleLife * 1.5;
+                    pos.y -= particleLife * particleLife * 0.5;
+                    
+                    float dist = length(uv - pos);
+                    float brightness = (0.005 / (dist + 0.001)) * explode * fade;
+                    
+                    float trail = exp(-dist * 20.0) * 0.3;
+                    color += (fwColor + vec3(1.0, 0.9, 0.5) * trail) * brightness;
+                }
+                
+                float core = length(uv - origin);
+                color += fwColor * (0.03 / (core + 0.01)) * explode * fade * 2.0;
+                
+                return color;
+            }
+
+            void main() {
+                vec2 uv = (gl_FragCoord.xy - resolution * 0.5) / resolution.y;
+                vec3 color = vec3(0.0);
+                
+                color += stars(uv);
+                
+                for (float i = 0.0; i < 5.0; i++) {
+                    color += firework(uv, i * 0.2, time + i * 2.0);
+                }
+                
+                color = pow(color, vec3(0.8));
+                
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error(gl.getProgramInfoLog(program));
+        }
+
+        const vertices = new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+             1,  1
+        ]);
+
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, 'position');
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const resolutionLocation = gl.getUniformLocation(program, 'resolution');
+        const timeLocation = gl.getUniformLocation(program, 'time');
+
+        gl.useProgram(program);
+
+        function render(time) {
+            time *= 0.001;
+            
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+            gl.uniform1f(timeLocation, time);
+            
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            
+            requestAnimationFrame(render);
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
