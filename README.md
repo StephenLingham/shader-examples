@@ -1,2 +1,2 @@
 # Shader Examples
-- Examples of shaders using GLSL and OpenGL
+- Examples of shaders using WebGL and GLSL
