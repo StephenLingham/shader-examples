@@ -24,27 +24,6 @@
             overflow-x: hidden;
         }
 
-        /* Animated background particles */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
-            animation: float 20s ease-in-out infinite;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(5deg); }
-        }
 
         .container {
             position: relative;
@@ -177,7 +156,6 @@
             }
         }
 
-        /* Responsive design */
         @media (max-width: 768px) {
             h1 {
                 font-size: 2.5rem;
@@ -208,7 +186,7 @@
     <div class="container">
         <div class="header">
             <h1>Shader Examples</h1>
-            <!-- <p class="subtitle">Shaders created using WebGL GLSL</p> -->
+            <p class="subtitle">Tech: WebGL and GLSL</p>
         </div>
 
         <ul class="examples-list" id="examplesList">
